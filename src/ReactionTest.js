@@ -6,7 +6,7 @@ const colors = [
   { name: 'green', key: 'G' },
 ];
 
-const totalRounds = 10;
+const totalRounds = 20;
 
 const ReactionTest = () => {
   const [currentColor, setCurrentColor] = useState('');
