@@ -6,48 +6,81 @@ const colors = [
   { name: 'green', key: 'G' },
 ];
 
+const totalRounds = 10;
+
 const ReactionTest = () => {
   const [currentColor, setCurrentColor] = useState('');
-  const [message, setMessage] = useState('Press "L" to start');
+  const [message, setMessage] = useState('Hold "L" to start');
   const [startTime, setStartTime] = useState(null);
   const [reactionTime, setReactionTime] = useState(null);
+  const [isLPressed, setIsLPressed] = useState(false);
+  const [round, setRound] = useState(0);
+  const [reactionTimes, setReactionTimes] = useState([]);
 
-  const checkReaction = useCallback((key) => {
-    if (key === currentColor.key) {
-      const endTime = Date.now();
-      const timeTaken = endTime - startTime;
-      setReactionTime(timeTaken);
-      setMessage(`Correct! Time: ${timeTaken} ms. Press "L" to start again.`);
+  const startTest = useCallback(() => {
+    if (round < totalRounds) {
+      setMessage('Wait for the color...');
+      setReactionTime(null);
+      setTimeout(() => {
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        setCurrentColor(randomColor);
+        setMessage(`Release "L" and press "${randomColor.key}"!`);
+        setStartTime(Date.now());
+      }, Math.random() * 2000 + 1000); // random delay between 1-3 seconds
     } else {
-      setMessage(`Wrong! It was ${currentColor.key}. Press "L" to start again.`);
+      const averageTime = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
+      setMessage(`Game Over! Average reaction time: ${averageTime.toFixed(2)} ms. Press "L" to play again.`);
     }
-    setCurrentColor('');
-    setStartTime(null);
-  }, [currentColor, startTime]);
+  }, [round, reactionTimes]);
+
+  const checkReaction = useCallback(
+    (key) => {
+      if (key === currentColor.key) {
+        const endTime = Date.now();
+        const timeTaken = endTime - startTime;
+        setReactionTimes((prevTimes) => [...prevTimes, timeTaken]);
+        setReactionTime(timeTaken);
+        setMessage(`Correct! Time: ${timeTaken} ms. Hold "L" for the next round.`);
+        setRound((prevRound) => prevRound + 1);
+        setCurrentColor('');
+      } else {
+        setMessage(`Wrong key! It was ${currentColor.key}. Hold "L" to try again.`);
+      }
+    },
+    [currentColor, startTime]
+  );
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key.toUpperCase() === 'L') {
-        startTest();
-      } else if (currentColor) {
-        checkReaction(event.key.toUpperCase());
+      const key = event.key.toUpperCase();
+      if (key === 'L' && !isLPressed) {
+        setIsLPressed(true);
+        if (round === 0 || round >= totalRounds) {
+          setRound(0);
+          setReactionTimes([]);
+          startTest();
+        } else if (currentColor === '' && round < totalRounds) {
+          startTest();
+        }
+      }
+    };
+
+    const handleKeyUp = (event) => {
+      const key = event.key.toUpperCase();
+      if (key === 'L') {
+        setIsLPressed(false);
+      } else if (currentColor && key === currentColor.key && !isLPressed) {
+        checkReaction(key);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentColor, checkReaction]);
-
-  const startTest = () => {
-    setMessage('Wait for the color...');
-    setReactionTime(null);
-    setTimeout(() => {
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      setCurrentColor(randomColor);
-      setMessage(`Press "${randomColor.key}"!`);
-      setStartTime(Date.now());
-    }, Math.random() * 2000 + 1000); // random delay between 1-3 seconds
-  };
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [currentColor, checkReaction, isLPressed, round, startTest]);
 
   return (
     <div style={{ textAlign: 'center', marginTop: '10%' }}>
@@ -65,6 +98,7 @@ const ReactionTest = () => {
       {reactionTime !== null && (
         <h2>Your reaction time: {reactionTime} ms</h2>
       )}
+      {round > 0 && <h2>Round {round} of {totalRounds}</h2>}
     </div>
   );
 };
